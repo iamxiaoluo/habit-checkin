@@ -1,0 +1,356 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>习惯打卡</title>
+<style>
+  :root{
+    --bg1:#eef3ff; --bg2:#fdf6f0;
+    --card:#ffffff; --ink:#2b3448; --muted:#8b94a7;
+    --line:#eef0f5; --brand:#6c7bff; --brand2:#8f6cff;
+    --green:#34c98f; --green-bg:#e7f9f1;
+    --radius:20px;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2));
+    background-attachment:fixed;
+    color:var(--ink);
+    padding:24px 16px 60px;
+  }
+  .wrap{ max-width:560px; margin:0 auto; }
+
+  /* ---------- header ---------- */
+  header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
+  .greet{ font-size:14px; color:var(--muted); letter-spacing:1px; }
+  h1{ font-size:26px; font-weight:800; margin-top:2px; letter-spacing:.5px; }
+  .date-chip{
+    font-size:13px; color:var(--brand); background:#fff; padding:8px 14px;
+    border-radius:999px; box-shadow:0 4px 14px rgba(108,123,255,.15);
+    font-weight:600; white-space:nowrap;
+  }
+
+  /* ---------- progress card ---------- */
+  .progress{
+    background:linear-gradient(135deg,#7a8cff,#9b7bff);
+    color:#fff; border-radius:var(--radius); padding:20px 22px;
+    box-shadow:0 12px 28px rgba(122,140,255,.30);
+    margin-bottom:16px; position:relative; overflow:hidden;
+  }
+  .progress::after{
+    content:""; position:absolute; width:160px; height:160px; border-radius:50%;
+    background:rgba(255,255,255,.12); top:-70px; right:-40px;
+  }
+  .progress-top{ display:flex; justify-content:space-between; align-items:center; position:relative; z-index:1; }
+  .progress-label{ font-size:14px; opacity:.92; }
+  .progress-count{ font-size:14px; font-weight:700; background:rgba(255,255,255,.2); padding:4px 12px; border-radius:999px; }
+  .progress-count b{ font-size:20px; margin-right:2px; }
+  .bar{ height:10px; background:rgba(255,255,255,.28); border-radius:999px; margin-top:14px; overflow:hidden; position:relative; z-index:1;}
+  .bar i{ display:block; height:100%; width:0%; border-radius:999px; background:#fff; transition:width .5s cubic-bezier(.4,0,.2,1); }
+  .done-msg{ margin-top:12px; font-size:14px; font-weight:600; position:relative; z-index:1; min-height:20px; }
+
+  /* ---------- habit list ---------- */
+  .card{ background:var(--card); border-radius:var(--radius); box-shadow:0 8px 24px rgba(43,52,72,.06); padding:6px 0; }
+  .habit{
+    display:flex; align-items:center; gap:14px; padding:15px 18px;
+    border-bottom:1px solid var(--line); cursor:pointer; position:relative;
+    transition:background .15s;
+  }
+  .habit:last-child{ border-bottom:none; }
+  .habit:hover{ background:#fafbff; }
+  .habit.done .name{ color:var(--muted); text-decoration:line-through; }
+  .emoji{
+    width:44px; height:44px; min-width:44px; border-radius:14px; display:flex;
+    align-items:center; justify-content:center; font-size:24px;
+    background:#f3f5fb; transition:all .25s;
+  }
+  .habit.done .emoji{ background:var(--green-bg); }
+  .info{ flex:1; min-width:0; }
+  .name{ font-size:16px; font-weight:600; transition:color .2s; word-break:break-all; }
+  .sub{ font-size:12px; color:var(--muted); margin-top:3px; }
+  .check{
+    width:30px; height:30px; min-width:30px; border-radius:50%;
+    border:2.5px solid #d5dae6; display:flex; align-items:center; justify-content:center;
+    transition:all .25s; background:#fff;
+  }
+  .habit.done .check{ border-color:var(--green); background:var(--green); }
+  .check svg{ width:15px; height:15px; stroke:#fff; stroke-width:3.2; fill:none;
+    stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:24; stroke-dashoffset:24; transition:stroke-dashoffset .3s .05s; }
+  .habit.done .check svg{ stroke-dashoffset:0; }
+  .del{
+    width:28px; height:28px; border-radius:8px; border:none; background:transparent; cursor:pointer;
+    color:#c3c9d6; font-size:16px; display:flex; align-items:center; justify-content:center;
+    opacity:0; transition:all .15s; position:absolute; right:6px; top:6px;
+  }
+  .habit:hover .del{ opacity:1; }
+  .del:hover{ background:#fdecec; color:#e2574c; }
+
+  /* ---------- empty ---------- */
+  .empty{ text-align:center; padding:36px 20px 30px; color:var(--muted); }
+  .empty .big{ font-size:44px; margin-bottom:10px; }
+  .empty p{ font-size:14px; line-height:1.7; }
+
+  /* ---------- week strip ---------- */
+  .week{ margin-top:16px; background:var(--card); border-radius:var(--radius); padding:16px 20px;
+    box-shadow:0 8px 24px rgba(43,52,72,.06); }
+  .week h3{ font-size:13px; color:var(--muted); font-weight:600; margin-bottom:12px; letter-spacing:1px; }
+  .week-days{ display:flex; justify-content:space-between; }
+  .day{ text-align:center; flex:1; }
+  .day .dow{ font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .day.today .dow{ color:var(--brand); font-weight:700; }
+  .ring{ width:34px; height:34px; margin:0 auto; border-radius:50%;
+    background:conic-gradient(var(--green) calc(var(--p)*1%), #eef0f5 0);
+    display:flex; align-items:center; justify-content:center; position:relative; }
+  .ring::before{ content:""; position:absolute; inset:5px; background:#fff; border-radius:50%; }
+  .ring span{ position:relative; font-size:10px; font-weight:700; color:var(--ink); }
+  .day.today .ring{ box-shadow:0 0 0 2px #fff, 0 0 0 4px rgba(108,123,255,.55); }
+
+  /* ---------- add form ---------- */
+  .add{ margin-top:16px; background:var(--card); border-radius:var(--radius);
+    box-shadow:0 8px 24px rgba(43,52,72,.06); padding:18px 20px; }
+  .add h3{ font-size:13px; color:var(--muted); font-weight:600; margin-bottom:12px; letter-spacing:1px; }
+  .row{ display:flex; gap:10px; }
+  .row input{
+    flex:1; border:2px solid var(--line); border-radius:14px; padding:12px 14px; font-size:15px;
+    outline:none; background:#fafbff; color:var(--ink); transition:border .2s; min-width:0;
+  }
+  .row input:focus{ border-color:var(--brand); background:#fff; }
+  .row button{
+    border:none; background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff;
+    font-size:15px; font-weight:700; padding:0 22px; border-radius:14px; cursor:pointer;
+    box-shadow:0 6px 16px rgba(108,123,255,.35); transition:transform .1s, box-shadow .2s;
+  }
+  .row button:hover{ transform:translateY(-1px); box-shadow:0 8px 20px rgba(108,123,255,.45); }
+  .row button:active{ transform:scale(.97); }
+  .emojis{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .emojis button{
+    border:2px solid transparent; background:#f3f5fb; border-radius:10px; width:36px; height:36px;
+    font-size:19px; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center;
+  }
+  .emojis button.sel{ border-color:var(--brand); background:#eef0ff; transform:scale(1.08); }
+  .hint{ font-size:12px; color:var(--muted); margin-top:10px; }
+
+  footer{ text-align:center; margin-top:22px; font-size:12px; color:#b7bdcb; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="greet" id="greet"></div>
+      <h1>习惯打卡</h1>
+    </div>
+    <div class="date-chip" id="dateChip"></div>
+  </header>
+
+  <section class="progress">
+    <div class="progress-top">
+      <span class="progress-label">今日进度</span>
+      <span class="progress-count"><b id="doneNum">0</b>/<span id="totalNum">0</span> 项</span>
+    </div>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="done-msg" id="doneMsg"></div>
+  </section>
+
+  <section class="card" id="list"></section>
+
+  <section class="week">
+    <h3>最近 7 天</h3>
+    <div class="week-days" id="weekDays"></div>
+  </section>
+
+  <section class="add">
+    <h3>＋ 添加新习惯</h3>
+    <form class="row" id="addForm" autocomplete="off">
+      <input id="habitName" maxlength="20" placeholder="想坚持什么？例如：喝水" required>
+      <button type="submit">添加</button>
+    </form>
+    <div class="emojis" id="emojiRow"></div>
+    <div class="hint">💡 每天点击习惯即可完成打卡；鼠标悬停右上角可删除习惯。</div>
+  </section>
+
+  <footer>数据保存在本机浏览器中</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var LS_HABITS = "habitTracker.habits";
+  var LS_RECORDS = "habitTracker.records";
+
+  var EMOJIS = ["💧","🏃","📖","🥗","💪","🧘","😴","🌅","✍️","🎯","🎸","💊","📵","🚭","💰"];
+  var selectedEmoji = "💧";
+
+  /* ---------- helpers ---------- */
+  function todayKey(){
+    var d = new Date();
+    return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+  }
+  function pad(n){ return (n<10?"0":"") + n; }
+  function load(key, fallback){
+    try{ var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch(e){ return fallback; }
+  }
+  function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
+  /* ---------- data ---------- */
+  var habits = load(LS_HABITS, []);      // [{id,name,emoji,created}]
+  var records = load(LS_RECORDS, {});    // { "2026-09-03": { habitId:true } }
+  var KEY = todayKey();
+
+  function persist(){ save(LS_HABITS, habits); save(LS_RECORDS, records); }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function doneCount(dayKey){
+    var r = records[dayKey] || {};
+    var n = 0;
+    habits.forEach(function(h){ if(r[h.id]) n++; });
+    return n;
+  }
+  function isDone(id){ return !!(records[KEY] && records[KEY][id]); }
+
+  /* ---------- dom ---------- */
+  var $ = function(s){ return document.querySelector(s); };
+  var listEl = $("#list"), barFill = $("#barFill"), doneNum = $("#doneNum"),
+      totalNum = $("#totalNum"), doneMsg = $("#doneMsg"), weekDays = $("#weekDays");
+
+  function renderHeader(){
+    var now = new Date(), h = now.getHours();
+    var g = h<5 ? "夜深了" : h<11 ? "早上好" : h<13 ? "中午好" : h<18 ? "下午好" : "晚上好";
+    $("#greet").textContent = g + "，今天也要加油 ✨";
+    var weeks = ["日","一","二","三","四","五","六"];
+    $("#dateChip").textContent = (now.getMonth()+1) + "月" + now.getDate() + "日 · 周" + weeks[now.getDay()];
+  }
+
+  function renderList(){
+    if(!habits.length){
+      listEl.innerHTML =
+        '<div class="empty"><div class="big">🌱</div>' +
+        '<p>还没有习惯<br>在下方添加第一个想坚持的习惯吧</p></div>';
+      return;
+    }
+    var html = "";
+    habits.forEach(function(h){
+      var done = isDone(h.id);
+      var created = new Date(h.created);
+      var days = Math.max(1, Math.floor((Date.now() - h.created)/86400000)+1);
+      html +=
+        '<div class="habit' + (done?" done":"") + '" data-id="' + h.id + '">' +
+          '<button class="del" data-del="' + h.id + '" title="删除">✕</button>' +
+          '<div class="emoji">' + h.emoji + '</div>' +
+          '<div class="info"><div class="name">' + esc(h.name) + '</div>' +
+          '<div class="sub">已坚持 ' + days + ' 天</div></div>' +
+          '<div class="check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+        '</div>';
+    });
+    listEl.innerHTML = html;
+  }
+
+  function renderProgress(){
+    var total = habits.length, done = doneCount(KEY);
+    var pct = total ? Math.round(done/total*100) : 0;
+    doneNum.textContent = done;
+    totalNum.textContent = total;
+    barFill.style.width = pct + "%";
+    if(!total) doneMsg.textContent = "添加习惯后开始打卡吧";
+    else if(done===0) doneMsg.textContent = "万事开头难，先完成第一项 💪";
+    else if(done===total) doneMsg.textContent = "🎉 全部完成！今天太棒了！";
+    else doneMsg.textContent = "已完成 " + done + " 项，还剩 " + (total-done) + " 项，继续加油！";
+  }
+
+  function renderWeek(){
+    var weeks = ["日","一","二","三","四","五","六"];
+    var out = "";
+    for(var i=6;i>=0;i--){
+      var d = new Date(); d.setDate(d.getDate()-i);
+      var key = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+      var total = habits.length;
+      var done = total ? doneCount(key) : 0;
+      var p = total ? Math.round(done/total*100) : 0;
+      var isT = key===KEY;
+      var label = total ? (done===total ? "✓" : done) : "·";
+      out += '<div class="day' + (isT?" today":"") + '">' +
+             '<div class="dow">' + (isT?"今天":(weeks[d.getDay()])) + '</div>' +
+             '<div class="ring" style="--p:' + p + '"><span>' + label + '</span></div></div>';
+    }
+    weekDays.innerHTML = out;
+  }
+
+  function esc(s){
+    return s.replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function render(){ renderHeader(); renderList(); renderProgress(); renderWeek(); }
+
+  /* ---------- interactions ---------- */
+  listEl.addEventListener("click", function(e){
+    var delBtn = e.target.closest(".del");
+    if(delBtn){
+      e.stopPropagation();
+      var h = habits.find(function(x){ return x.id===delBtn.dataset.del; });
+      if(h && confirm("删除习惯「" + h.name + "」？历史记录会保留。")){
+        habits = habits.filter(function(x){ return x.id!==h.id; });
+        persist(); render();
+      }
+      return;
+    }
+    var row = e.target.closest(".habit");
+    if(!row) return;
+    var id = row.dataset.id;
+    records[KEY] = records[KEY] || {};
+    if(records[KEY][id]){ delete records[KEY][id]; }
+    else{ records[KEY][id] = true; }
+    persist(); render();
+  });
+
+  $("#addForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var inp = $("#habitName");
+    var name = inp.value.trim();
+    if(!name) return;
+    var emoji = selectedEmoji;
+    // 如果用户自己输入了开头的 emoji，就使用它
+    var m = name.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
+    if(m){ emoji = m[1]; name = m[2].trim() || "新习惯"; }
+    habits.push({ id:uid(), name:name, emoji:emoji, created:Date.now() });
+    inp.value = "";
+    selectedEmoji = "💧";
+    updateEmojiUI();
+    persist(); render();
+    inp.focus();
+  });
+
+  /* emoji picker */
+  var emojiRow = $("#emojiRow");
+  function buildEmojiUI(){
+    EMOJIS.forEach(function(em){
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = em; b.dataset.em = em;
+      emojiRow.appendChild(b);
+    });
+    updateEmojiUI();
+  }
+  function updateEmojiUI(){
+    Array.prototype.forEach.call(emojiRow.children, function(b){
+      b.classList.toggle("sel", b.dataset.em===selectedEmoji);
+    });
+  }
+  emojiRow.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(b){ selectedEmoji = b.dataset.em; updateEmojiUI(); }
+  });
+
+  /* kick off */
+  buildEmojiUI();
+  render();
+})();
+</script>
+</body>
+</html>
