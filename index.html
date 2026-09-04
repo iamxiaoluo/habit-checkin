@@ -183,6 +183,35 @@
   .day-empty{ text-align:center; padding:30px 20px; color:var(--muted); font-size:13px; }
   body.modal-open{ overflow:hidden; }
 
+
+  /* ---------- 月历 ---------- */
+  .week-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .week-head h3{ font-size:12.5px; color:var(--muted); font-weight:600; letter-spacing:.06em; margin:0; }
+  .cal-nav{ display:flex; align-items:center; gap:8px; }
+  .cal-btn{ width:28px; height:28px; border-radius:9px; border:1px solid var(--hairline); background:var(--surface); color:var(--muted); font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+  .cal-btn:hover{ background:var(--surface-2); color:var(--ink); }
+  .cal-title{ font-family:"Sora",sans-serif; font-size:13px; font-weight:700; color:var(--ink); min-width:56px; text-align:center; font-variant-numeric:tabular-nums; }
+  .cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:2px; }
+  .cal-dow span{ text-align:center; font-size:11px; color:var(--muted); padding:4px 0; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .cal-blank{ aspect-ratio:1; }
+  .cal-day{ position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; aspect-ratio:1; border-radius:12px; background:var(--surface-2); cursor:pointer; transition:background .15s, transform .1s; }
+  .cal-day .num{ font-family:"Sora",sans-serif; font-size:13px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+  .cal-day .dot{ width:7px; height:7px; border-radius:50%; background:transparent; }
+  .cal-day.has .dot{ background:#B9C6BF; }
+  .cal-day.all .dot{ background:var(--accent); }
+  .cal-day.today{ background:var(--accent-tint); border:1px solid var(--accent); }
+  .cal-day.today .num{ color:var(--accent-strong); }
+  .cal-day:hover:not(.future){ background:#ECEEE9; }
+  .cal-day.future{ background:transparent; cursor:default; opacity:.4; }
+  /* ---------- 连续坚持 ---------- */
+  .progress-side{ display:flex; align-items:center; gap:10px; margin-left:auto; }
+  .progress-side .progress-count{ margin-left:0; }
+  .streak{ font-size:12.5px; color:var(--muted); background:var(--surface-2); border-radius:999px; padding:4px 10px; font-weight:600; white-space:nowrap; }
+  /* ---------- 详情可点击 ---------- */
+  .day-item{ cursor:pointer; }
+  .day-item:hover{ background:var(--hover); }
+
 </style>
 </head>
 <body>
@@ -197,9 +226,12 @@
   </header>
 
   <section class="progress">
-    <div class="progress-top">
+        <div class="progress-top">
       <span class="progress-label">今日进度</span>
-      <span class="progress-count"><b id="doneNum">0</b>/<span id="totalNum">0</span> 项</span>
+      <div class="progress-side">
+        <span class="streak" id="streak"></span>
+        <span class="progress-count"><b id="doneNum">0</b>/<span id="totalNum">0</span> 项</span>
+      </div>
     </div>
     <div class="bar"><i id="barFill"></i></div>
     <div class="done-msg" id="doneMsg"></div>
@@ -207,9 +239,17 @@
 
   <section class="card" id="list"></section>
 
-  <section class="week">
-    <h3>最近 7 天</h3>
-    <div class="week-days" id="weekDays"></div>
+    <section class="week">
+    <div class="week-head">
+      <h3>本月日历</h3>
+      <div class="cal-nav">
+        <button class="cal-btn" id="calPrev" aria-label="上个月">‹</button>
+        <span class="cal-title" id="calTitle"></span>
+        <button class="cal-btn" id="calNext" aria-label="下个月">›</button>
+      </div>
+    </div>
+    <div class="cal-dow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="week-days cal-grid" id="weekDays"></div>
   </section>
 
   <section class="add">
@@ -277,8 +317,7 @@
   /* ---------- dom ---------- */
   var $ = function(s){ return document.querySelector(s); };
   var listEl = $("#list"), barFill = $("#barFill"), doneNum = $("#doneNum"),
-      totalNum = $("#totalNum"), doneMsg = $("#doneMsg"), weekDays = $("#weekDays");
-  var weekKeys = [];
+      totalNum = $("#totalNum"), doneMsg = $("#doneMsg"), weekDays = $("#weekDays");
 
   function renderHeader(){
     var now = new Date(), h = now.getHours();
@@ -324,42 +363,68 @@
     else doneMsg.textContent = "已完成 " + done + " 项，还剩 " + (total-done) + " 项，继续加油！";
   }
 
-  function renderWeek(){
-    weekKeys = [];
-    var weeks = ["日","一","二","三","四","五","六"];
-    var out = "";
-    for(var i=6;i>=0;i--){
-      var d = new Date(); d.setDate(d.getDate()-i);
-      var key = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
-      var total = habits.length;
-      var done = total ? doneCount(key) : 0;
-      var p = total ? Math.round(done/total*100) : 0;
-      var isT = key===KEY;
-      weekKeys.push(key);
-      var label = total ? (done===total ? "✓" : done) : "·";
-      out += '<div class="day' + (isT?" today":"") + '">' +
-             '<div class="dow">' + (isT?"今天":(weeks[d.getDay()])) + '</div>' +
-             '<div class="ring" style="--p:' + p + '"><span>' + label + '</span></div></div>';
-    }
-    
-    weekDays.innerHTML = out;
-    var kids = weekDays.children;
-    for(var j=0;j<kids.length;j++){
-      kids[j].setAttribute('data-d', weekKeys[j]);
-      kids[j].setAttribute('role','button');
-      kids[j].setAttribute('tabindex','0');
-      kids[j].setAttribute('aria-label','查看打卡详情');
-    }
+  var viewYear = new Date().getFullYear(), viewMonth = new Date().getMonth();
 
+  function todayKy(){
+    var d = new Date();
+    return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
   }
-
+  function calcStreak(){
+    var d = new Date();
+    var streak = 0;
+    for(var i=0;i<3660;i++){
+      var key = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+      var rec = records[key] || {};
+      var done = habits.some(function(h){ return rec[h.id]; });
+      if(done){ streak++; }
+      else if(i===0){}
+      else { break; }
+      d.setDate(d.getDate()-1);
+    }
+    return streak;
+  }
+  function renderStreak(){
+    var el = document.getElementById("streak");
+    if(el){ el.textContent = "🔥 连续 " + calcStreak() + " 天"; }
+  }
+  function renderCalendar(){
+    var todayK = todayKy();
+    var todayD = new Date();
+    var first = new Date(viewYear, viewMonth, 1);
+    var daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+    var lead = (first.getDay()+6)%7;
+    var monthTotal = habits.length;
+    var out = "";
+    for(var k=0;k<lead;k++){ out += '<div class="cal-blank"></div>'; }
+    for(var day=1; day<=daysInMonth; day++){
+      var d = new Date(viewYear, viewMonth, day);
+      var key = viewYear+"-"+pad(viewMonth+1)+"-"+pad(day);
+      var isT = key===todayK;
+      var future = d.getTime() > todayD.getTime();
+      var done = monthTotal ? doneCount(key) : 0;
+      var allDone = monthTotal>0 && done===monthTotal;
+      if(future){
+        out += '<div class="cal-day future"><span class="num">'+day+'</span></div>';
+      } else {
+        out += '<div class="day cal-day' + (isT?" today":"") + (allDone?" all":"") + (done>0?" has":"") + '" data-d="' + key + '" role="button" tabindex="0" aria-label="查看' + (viewMonth+1) + '月' + day + '日打卡详情">' +
+               '<span class="num">'+day+'</span>' +
+               '<span class="dot"></span>' +
+               '</div>';
+      }
+    }
+    var tail = (7 - ((lead+daysInMonth)%7)) % 7;
+    for(var m=0;m<tail;m++){ out += '<div class="cal-blank"></div>'; }
+    weekDays.innerHTML = out;
+    var tEl = document.getElementById("calTitle");
+    if(tEl){ tEl.textContent = viewYear + "年" + (viewMonth+1) + "月"; }
+  }
   function esc(s){
     return s.replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
   }
 
-  function render(){ renderHeader(); renderList(); renderProgress(); renderWeek(); }
+  function render(){ renderHeader(); renderList(); renderProgress(); renderStreak(); renderCalendar(); }
 
   /* ---------- interactions ---------- */
   listEl.addEventListener("click", function(e){
@@ -421,33 +486,42 @@
 
   
   /* ---------- 查看某天打卡详情 ---------- */
+  /* ---------- 查看 / 补打卡某天详情 ---------- */
   var overlay = document.getElementById("dayModal");
   var dayTitle = document.getElementById("dayTitle");
   var dayList = document.getElementById("dayList");
   var dayClose = document.getElementById("dayClose");
-  var WEEK = ["日","一","二","三","四","五","六"];
+  var WEEKL = ["日","一","二","三","四","五","六"];
+  var currentDayKey = null;
 
-  function openDay(key, d){
-    var label = (d.getMonth()+1) + "月" + d.getDate() + "日 · 周" + WEEK[d.getDay()] + " 打卡详情";
-    dayTitle.textContent = label;
+  function renderDayList(){
+    var key = currentDayKey;
+    if(!key) return;
+    var d = new Date(key.replace(/-/g,"/"));
+    var label = (d.getMonth()+1) + "月" + d.getDate() + "日 · 周" + WEEKL[d.getDay()];
+    dayTitle.textContent = label + " 打卡详情";
     var rec = records[key] || {};
     var cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + 86400000;
     var items = habits.filter(function(h){ return h.created < cutoff; });
     if(!items.length){
       dayList.innerHTML = '<p class="day-empty">这一天还没有习惯记录</p>';
-    } else {
-      var dh = "";
-      items.forEach(function(h){
-        var done = !!rec[h.id];
-        dh +=
-          '<div class="day-item' + (done?" done":"") + '">' +
-            '<div class="emoji">' + h.emoji + '</div>' +
-            '<div class="info"><div class="name">' + esc(h.name) + '</div></div>' +
-            '<div class="day-check">' + (done ? "✓" : "—") + '</div>' +
-          '</div>';
-      });
-      dayList.innerHTML = dh;
+      return;
     }
+    var dh = "";
+    items.forEach(function(h){
+      var done = !!rec[h.id];
+      dh +=
+        '<div class="day-item' + (done?" done":"") + '" data-id="' + h.id + '">' +
+          '<div class="emoji">' + h.emoji + '</div>' +
+          '<div class="info"><div class="name">' + esc(h.name) + '</div></div>' +
+          '<div class="day-check">' + (done ? "✓" : "—") + '</div>' +
+        '</div>';
+    });
+    dayList.innerHTML = dh;
+  }
+  function openDay(key){
+    currentDayKey = key;
+    renderDayList();
     overlay.hidden = false;
     document.body.classList.add("modal-open");
     dayClose.focus();
@@ -456,22 +530,39 @@
     overlay.hidden = true;
     document.body.classList.remove("modal-open");
   }
+  function toggleDayItem(id){
+    if(!currentDayKey) return;
+    records[currentDayKey] = records[currentDayKey] || {};
+    if(records[currentDayKey][id]){ delete records[currentDayKey][id]; }
+    else{ records[currentDayKey][id] = true; }
+    persist();
+    renderDayList();
+    render();
+  }
+  dayList.addEventListener("click", function(e){
+    var item = e.target.closest(".day-item");
+    if(!item) return;
+    toggleDayItem(item.dataset.id);
+  });
   weekDays.addEventListener("click", function(e){
     var day = e.target.closest(".day");
     if(!day) return;
-    var key = day.dataset.d;
-    openDay(key, new Date(key.replace(/-/g,"/")));
+    openDay(day.dataset.d);
   });
   weekDays.addEventListener("keydown", function(e){
     if(e.key!=="Enter" && e.key!==" ") return;
     var day = e.target.closest(".day");
     if(!day) return;
     e.preventDefault();
-    openDay(day.dataset.d, new Date(day.dataset.d.replace(/-/g,"/")));
+    openDay(day.dataset.d);
   });
   dayClose.addEventListener("click", closeDay);
   overlay.addEventListener("click", function(e){ if(e.target===overlay) closeDay(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !overlay.hidden) closeDay(); });
+  var calPrev = document.getElementById("calPrev");
+  var calNext = document.getElementById("calNext");
+  if(calPrev){ calPrev.addEventListener("click", function(){ viewMonth--; if(viewMonth<0){ viewMonth=11; viewYear--; } renderCalendar(); }); }
+  if(calNext){ calNext.addEventListener("click", function(){ viewMonth++; if(viewMonth>11){ viewMonth=0; viewYear++; } renderCalendar(); }); }
 
   /* kick off */
   buildEmojiUI();
