@@ -150,6 +150,39 @@
   @media (prefers-reduced-motion: reduce){
     *{ transition:none !important; animation:none !important; }
   }
+
+  /* ---------- 查看某天打卡详情 ---------- */
+  .day{ cursor:pointer; }
+  .day:hover{ opacity:.8; }
+  .day:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:10px; }
+  .overlay{
+    position:fixed; inset:0; background:rgba(30,40,60,.32); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--surface); border:1px solid var(--hairline); border-radius:20px;
+    box-shadow:0 24px 60px rgba(30,40,60,.18); width:100%; max-width:480px; max-height:78vh;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .sheet-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px 12px; border-bottom:1px solid var(--hairline); }
+  .sheet-head h2{ font-size:17px; font-weight:700; color:var(--ink); letter-spacing:-.01em; }
+  .sheet-close{ width:32px; height:32px; border-radius:10px; border:none; background:var(--surface-2); color:var(--muted); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; }
+  .sheet-close:hover{ background:#E9EBE7; color:var(--ink); }
+  .sheet-body{ padding:6px 6px 12px; overflow:auto; }
+  .day-item{ display:flex; align-items:center; gap:14px; padding:12px 14px; border-bottom:1px solid var(--hairline); }
+  .day-item:last-child{ border-bottom:none; }
+  .day-item .emoji{ width:40px; height:40px; min-width:40px; border-radius:12px; font-size:20px; background:var(--surface-2); border:1px solid var(--hairline); display:flex; align-items:center; justify-content:center; }
+  .day-item.done .emoji{ background:var(--accent-tint); border-color:#DCE9E0; }
+  .day-item .name{ font-size:15px; font-weight:600; color:var(--ink); }
+  .day-item.done .name{ color:var(--accent-strong); }
+  .day-item:not(.done) .name{ color:var(--muted); }
+  .day-check{ width:28px; height:28px; min-width:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; }
+  .day-item.done .day-check{ background:var(--accent); color:var(--on-accent); }
+  .day-item:not(.done) .day-check{ background:var(--surface-2); color:#B0B7BD; }
+  .day-empty{ text-align:center; padding:30px 20px; color:var(--muted); font-size:13px; }
+  body.modal-open{ overflow:hidden; }
+
 </style>
 </head>
 <body>
@@ -190,6 +223,17 @@
   </section>
 
   <footer>数据保存在本机浏览器中</footer>
+</div>
+
+
+<div class="overlay" id="dayModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dayTitle">
+    <div class="sheet-head">
+      <h2 id="dayTitle"></h2>
+      <button class="sheet-close" id="dayClose" aria-label="关闭">&times;</button>
+    </div>
+    <div class="sheet-body" id="dayList"></div>
+  </div>
 </div>
 
 <script>
@@ -234,6 +278,7 @@
   var $ = function(s){ return document.querySelector(s); };
   var listEl = $("#list"), barFill = $("#barFill"), doneNum = $("#doneNum"),
       totalNum = $("#totalNum"), doneMsg = $("#doneMsg"), weekDays = $("#weekDays");
+  var weekKeys = [];
 
   function renderHeader(){
     var now = new Date(), h = now.getHours();
@@ -280,6 +325,7 @@
   }
 
   function renderWeek(){
+    weekKeys = [];
     var weeks = ["日","一","二","三","四","五","六"];
     var out = "";
     for(var i=6;i>=0;i--){
@@ -289,12 +335,22 @@
       var done = total ? doneCount(key) : 0;
       var p = total ? Math.round(done/total*100) : 0;
       var isT = key===KEY;
+      weekKeys.push(key);
       var label = total ? (done===total ? "✓" : done) : "·";
       out += '<div class="day' + (isT?" today":"") + '">' +
              '<div class="dow">' + (isT?"今天":(weeks[d.getDay()])) + '</div>' +
              '<div class="ring" style="--p:' + p + '"><span>' + label + '</span></div></div>';
     }
+    
     weekDays.innerHTML = out;
+    var kids = weekDays.children;
+    for(var j=0;j<kids.length;j++){
+      kids[j].setAttribute('data-d', weekKeys[j]);
+      kids[j].setAttribute('role','button');
+      kids[j].setAttribute('tabindex','0');
+      kids[j].setAttribute('aria-label','查看打卡详情');
+    }
+
   }
 
   function esc(s){
@@ -362,6 +418,60 @@
     var b = e.target.closest("button");
     if(b){ selectedEmoji = b.dataset.em; updateEmojiUI(); }
   });
+
+  
+  /* ---------- 查看某天打卡详情 ---------- */
+  var overlay = document.getElementById("dayModal");
+  var dayTitle = document.getElementById("dayTitle");
+  var dayList = document.getElementById("dayList");
+  var dayClose = document.getElementById("dayClose");
+  var WEEK = ["日","一","二","三","四","五","六"];
+
+  function openDay(key, d){
+    var label = (d.getMonth()+1) + "月" + d.getDate() + "日 · 周" + WEEK[d.getDay()] + " 打卡详情";
+    dayTitle.textContent = label;
+    var rec = records[key] || {};
+    var cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + 86400000;
+    var items = habits.filter(function(h){ return h.created < cutoff; });
+    if(!items.length){
+      dayList.innerHTML = '<p class="day-empty">这一天还没有习惯记录</p>';
+    } else {
+      var dh = "";
+      items.forEach(function(h){
+        var done = !!rec[h.id];
+        dh +=
+          '<div class="day-item' + (done?" done":"") + '">' +
+            '<div class="emoji">' + h.emoji + '</div>' +
+            '<div class="info"><div class="name">' + esc(h.name) + '</div></div>' +
+            '<div class="day-check">' + (done ? "✓" : "—") + '</div>' +
+          '</div>';
+      });
+      dayList.innerHTML = dh;
+    }
+    overlay.hidden = false;
+    document.body.classList.add("modal-open");
+    dayClose.focus();
+  }
+  function closeDay(){
+    overlay.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+  weekDays.addEventListener("click", function(e){
+    var day = e.target.closest(".day");
+    if(!day) return;
+    var key = day.dataset.d;
+    openDay(key, new Date(key.replace(/-/g,"/")));
+  });
+  weekDays.addEventListener("keydown", function(e){
+    if(e.key!=="Enter" && e.key!==" ") return;
+    var day = e.target.closest(".day");
+    if(!day) return;
+    e.preventDefault();
+    openDay(day.dataset.d, new Date(day.dataset.d.replace(/-/g,"/")));
+  });
+  dayClose.addEventListener("click", closeDay);
+  overlay.addEventListener("click", function(e){ if(e.target===overlay) closeDay(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !overlay.hidden) closeDay(); });
 
   /* kick off */
   buildEmojiUI();
