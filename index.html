@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>习惯打卡</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap');
+  /* 不再引用外部字体 CDN：容器和在线 Docker 环境可能访问不到外网，
+     去掉 Google Fonts 的 @import，统一使用系统字体栈，保证离线也能正常渲染。 */
 
   :root{
     --paper:#FAFAF8;
@@ -42,6 +43,8 @@
   header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:22px; }
   .greet{ font-size:13.5px; color:var(--muted); letter-spacing:.02em; }
   h1{ font-size:24px; font-weight:700; margin-top:6px; letter-spacing:-.01em; color:var(--ink); }
+  .byline{ font-size:12px; color:var(--muted); margin-top:7px; line-height:1.6; letter-spacing:.02em; }
+  .byline b{ color:var(--accent-strong); font-weight:600; }
   .date-chip{
     font-size:13px; color:var(--ink); background:var(--surface); padding:8px 14px;
     border:1px solid var(--hairline); border-radius:999px; font-weight:600; white-space:nowrap;
@@ -143,7 +146,8 @@
   .emojis button.sel{ border-color:var(--accent); background:var(--accent-tint); transform:scale(1.06); }
   .hint{ font-size:12px; color:var(--muted); margin-top:12px; line-height:1.6; }
 
-  footer{ text-align:center; margin-top:24px; font-size:12px; color:#A9B0B8; }
+  footer{ text-align:center; margin-top:24px; font-size:12px; color:#A9B0B8; line-height:1.9; }
+  footer div:nth-child(2){ color:var(--accent-strong); font-weight:600; }
 
   .row button:focus-visible, .emojis button:focus-visible, .del:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 
@@ -212,6 +216,8 @@
   .day-item{ cursor:pointer; }
   .day-item:hover{ background:var(--hover); }
 
+
+  .signature{ color:var(--ink); font-weight:600; letter-spacing:.02em; }
 </style>
 </head>
 <body>
@@ -221,6 +227,7 @@
     <div>
       <div class="greet" id="greet"></div>
       <h1>习惯打卡</h1>
+      <div class="byline">容器化实践 · <b>23级软件工程6班 / 骆堪洪 / 202510006994</b> · 每天进步一点点</div>
     </div>
     <div class="date-chip" id="dateChip"></div>
   </header>
@@ -262,7 +269,12 @@
     <div class="hint">💡 每天点击习惯即可完成打卡；鼠标悬停右上角可删除习惯。</div>
   </section>
 
-  <footer>数据保存在本机浏览器中</footer>
+  <footer>
+    <span class="signature">设计：骆堪洪 · 23级软件工程6班 · 学号 202510006994</span><br>
+    「每天进步一点点，坚持就是胜利」<br>
+    习惯打卡 Habit Check-in · 模块二大作业 · 容器化 Web 应用<br>
+    数据保存在本机浏览器 localStorage 中（容器仅提供静态页面）
+  </footer>
 </div>
 
 
@@ -300,6 +312,36 @@
   /* ---------- data ---------- */
   var habits = load(LS_HABITS, []);      // [{id,name,emoji,created}]
   var records = load(LS_RECORDS, {});    // { "2026-09-03": { habitId:true } }
+
+  // 首次访问时（容器里是全新的 origin，localStorage 为空）预置一组习惯和最近几天的打卡记录，
+  // 保证页面一打开就有内容，而不是显示“还没有习惯”的空白页。
+  if(!habits.length){
+    var seedNow = Date.now();
+    var seedList = [
+      { name:"喝水", emoji:"💧" },
+      { name:"健身", emoji:"💪" },
+      { name:"跑步", emoji:"🏃" },
+      { name:"学习", emoji:"📖" },
+      { name:"早睡", emoji:"😴" },
+      { name:"记账", emoji:"💰" },
+      { name:"专注", emoji:"🎯" }
+    ];
+    habits = seedList.map(function(item, i){
+      return { id:"seed-" + (i+1), name:item.name, emoji:item.emoji, created: seedNow - 82*86400000 };
+    });
+    save(LS_HABITS, habits);
+    // 预置最近 3 天记录：昨天完成 5 项、前天全部完成、大前天 6 项，用于展示月历圆点与连续天数
+    for(var sd=1; sd<=3; sd++){
+      var sdt = new Date(); sdt.setDate(sdt.getDate() - sd);
+      var sk = sdt.getFullYear() + "-" + pad(sdt.getMonth()+1) + "-" + pad(sdt.getDate());
+      var want = sd===1 ? 5 : (sd===2 ? habits.length : 6);
+      var rec = {};
+      habits.forEach(function(h, idx){ if(idx < want) rec[h.id] = true; });
+      records[sk] = rec;
+    }
+    save(LS_RECORDS, records);
+  }
+
   var KEY = todayKey();
 
   function persist(){ save(LS_HABITS, habits); save(LS_RECORDS, records); }
@@ -317,7 +359,7 @@
   /* ---------- dom ---------- */
   var $ = function(s){ return document.querySelector(s); };
   var listEl = $("#list"), barFill = $("#barFill"), doneNum = $("#doneNum"),
-      totalNum = $("#totalNum"), doneMsg = $("#doneMsg"), weekDays = $("#weekDays");
+      totalNum = $("#totalNum"), doneMsg = $("#doneMsg"), weekDays = $("#weekDays");
 
   function renderHeader(){
     var now = new Date(), h = now.getHours();
